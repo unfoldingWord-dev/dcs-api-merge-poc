@@ -2,7 +2,7 @@
 host="https://qa.door43.org"
 token="990fa26ab7770f665920d6c91c1e2a7728061a9c"
 org="dcs-poc-org"
-repo="dcs-poc-repo"
+repo="dcs-poc-repo-merge-conflicts"
 
 #### FILE CONTENT
 file1_name="file1.md"

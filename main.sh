@@ -147,8 +147,15 @@ MAKING PR FOR USER BRANCH INTO master:
 "
 response=$(curl --silent -X POST "$host/api/v1/repos/$org/$repo/pulls?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"base\": \"master\", \"body\": \"Merging user branch into master\", \"head\": \"test-tc-create-1\", \"title\": \"test-tc-create-1 into master\"}")
 echo "$response"
+
 pr_num=$(echo "$response" | jq -r '.number')
+pr_url=$(echo "$response" | jq -r '.url')
+diff_url=$(echo "$response" | jq -r '.diff_url')
+patch_url=$(echo "$response" | jq -r '.path_url')
 mergable=$(echo "$response" | jq -r '.mergable')
+
+echo -e "\n\nPR URL: $pr_url\nDIFF URL: $diff_url\nPATCH URL: $patch_url\nMERGABLE: $mergable\n"
+
 if [[ ! $mergable ]]; then
   echo -e "\nIS NOT MERGABLE!"
   exit
@@ -215,3 +222,9 @@ else
   echo -e "DIFFERENT:\n\n"
   diff <(echo "$expected_file2_content") <(echo "$merged_file2_content")
 fi
+
+echo "
+==========
+DONE
+
+See Repo/PR at $pr_url"

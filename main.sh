@@ -152,9 +152,9 @@ pr_num=$(echo "$response" | jq -r '.number')
 pr_url=$(echo "$response" | jq -r '.url')
 diff_url=$(echo "$response" | jq -r '.diff_url')
 patch_url=$(echo "$response" | jq -r '.path_url')
-mergable=$(echo "$response" | jq -r '.mergable')
+mergeable=$(echo "$response" | jq -r '.mergeable')
 
-echo -e "\n\nPR URL: $pr_url\nDIFF URL: $diff_url\nPATCH URL: $patch_url\nMERGABLE: $mergable\n"
+echo -e "\n\nPR URL: $pr_url\nDIFF URL: $diff_url\nPATCH URL: $patch_url\nMERGABLE: $mergeable\n"
 
 if [[ ! $mergable ]]; then
   echo -e "\nIS NOT MERGABLE!"

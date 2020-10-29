@@ -2,7 +2,7 @@
 host="https://qa.door43.org"
 token="990fa26ab7770f665920d6c91c1e2a7728061a9c"
 org="dcs-poc-org"
-repo="dcs-poc-repo"
+repo="dcs-poc-repo-no-conflicts"
 
 #### FILE CONTENT
 file1_name="file1.md"
@@ -148,6 +148,9 @@ MAKING PR FOR USER BRANCH INTO master:
 response=$(curl --silent -X POST "$host/api/v1/repos/$org/$repo/pulls?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"base\": \"master\", \"body\": \"Merging user branch into master\", \"head\": \"test-tc-create-1\", \"title\": \"test-tc-create-1 into master\"}")
 echo "$response"
 pr_num=$(echo "$response" | jq -r '.number')
+pr_url=$(echo "$response" | jq -r '.url')
+
+exit
 mergable=$(echo "$response" | jq -r '.mergable')
 if [[ ! $mergable ]]; then
   echo -e "\nIS NOT MERGABLE!"
@@ -215,3 +218,5 @@ else
   echo -e "DIFFERENT:\n\n"
   diff <(echo "$expected_file2_content") <(echo "$merged_file2_content")
 fi
+
+echo "See results at $host/$org/$repo/pulls/$pr_num"

@@ -156,7 +156,7 @@ mergeable=$(echo "$response" | jq -r '.mergeable')
 
 echo -e "\n\nPR URL: $pr_url\nDIFF URL: $diff_url\nPATCH URL: $patch_url\nMERGEABLE: $mergeable\n"
 
-if [[ ! $mergeable ]]; then
+if [[ $mergeable == "false" ]]; then
   echo -e "\nIS NOT MERGEABLE!"
   exit
 fi

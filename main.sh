@@ -3,6 +3,17 @@ host="https://qa.door43.org"
 token="c8b93b7ccf7018eee9fec586733a532c5f858cdd"
 org="dcs-poc-org"
 repo="dcs-poc-repo"
+branch="user-tc-create-1"
+
+#USER INPUT
+read -p "Enter the name of the repo to use in the dcs-poc org [${repo}]: " repo_input
+repo=${repo_input:-$repo}
+
+read -p "Enter the name of the user branch [${branch}]: " branch_input
+branch=${branch_input:-$branch}
+
+echo Repo: $repo
+echo User branch: $branch
 
 #### FILE CONTENT
 file1_name="file1.md"
@@ -62,6 +73,9 @@ else
   echo "EXISTS. DELETED. $response"
 fi
 
+echo "Press ENTER to continue"
+read
+
 # CREATE REPO
 echo "
 =========
@@ -70,6 +84,9 @@ CREATING REPO $repo:
 "
 response=$(curl --silent -X POST "$host/api/v1/orgs/$org/repos?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"auto_init\": true, \"default_branch\": \"master\", \"description\": \"$repo\", \"license\": \"CC-BY-SA-4.0.md\", \"name\": \"$repo\", \"private\": false, \"readme\": \"Default\"}")
 echo "$response"
+
+echo "Press ENTER to continue"
+read
 
 #### CREATE FILE 1 IN master
 echo "
@@ -81,6 +98,9 @@ response=$(curl --silent -X POST "$host/api/v1/repos/$org/$repo/contents/$file1_
 echo "$response"
 file1_sha=$(echo "$response" | jq -r '.content.sha')
 echo -e "\nFILE 1 SHA: $file1_sha\n\n"
+
+echo "Press ENTER to continue"
+read
 
 #### CREATE FILE 2 IN master
 echo "
@@ -100,7 +120,7 @@ echo "
 CREATING USER BRANCH:
 
 "
-response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/file1.md?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"master\", \"content\": \"$file1_base64\", \"message\": \"Creates new branch\", \"new_branch\": \"test-tc-create-1\", \"sha\": \"$file1_sha\"}")
+response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/file1.md?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"master\", \"content\": \"$file1_base64\", \"message\": \"Creates new branch\", \"new_branch\": \"$branch\", \"sha\": \"$file1_sha\"}")
 echo "$response"
 
 #### MODIFY FILE 1 IN USER BRANCH
@@ -109,7 +129,7 @@ echo "
 MODIFYING $file1_name IN USER BRANCH:
 
 "
-response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/$file1_name?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"test-tc-create-1\", \"content\": \"$user_modified_file1_base64\", \"message\": \"Updates $file1_name in user branch\", \"sha\": \"$file1_sha\"}")
+response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/$file1_name?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"$branch\", \"content\": \"$user_modified_file1_base64\", \"message\": \"Updates $file1_name in user branch\", \"sha\": \"$file1_sha\"}")
 echo "$response"
 
 #### MODIFY FILE 2 IN USER BRANCH
@@ -118,7 +138,7 @@ echo "
 MODIFYING $file2_name IN USER BRANCH:
 
 "
-response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/$file2_name?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"test-tc-create-1\", \"content\": \"$user_modified_file2_base64\", \"message\": \"Updates $file2_name in user branch\", \"sha\": \"$file2_sha\"}")
+response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/$file2_name?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"$branch\", \"content\": \"$user_modified_file2_base64\", \"message\": \"Updates $file2_name in user branch\", \"sha\": \"$file2_sha\"}")
 echo "$response"
 
 #### MODIFY FILE 1 IN master BRANCH
@@ -139,13 +159,13 @@ MODIFYING $file2_name IN master BRANCH:
 response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/$file2_name?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"master\", \"content\": \"$master_modified_file2_base64\", \"message\": \"Updates $file2_name in master branch\", \"sha\": \"$file2_sha\"}")
 echo "$response"
 
-#### MAKE PR FOR test-tc-create-1 into master
+#### MAKE PR FOR user branch into master
 echo "
 =========
 MAKING PR FOR USER BRANCH INTO master:
 
 "
-response=$(curl --silent -X POST "$host/api/v1/repos/$org/$repo/pulls?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"base\": \"master\", \"body\": \"Merging user branch into master\", \"head\": \"test-tc-create-1\", \"title\": \"test-tc-create-1 into master\"}")
+response=$(curl --silent -X POST "$host/api/v1/repos/$org/$repo/pulls?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"base\": \"master\", \"body\": \"Merging user branch into master\", \"head\": \"$branch\", \"title\": \"$branch into master\"}")
 echo "$response"
 
 pr_num=$(echo "$response" | jq -r '.number')

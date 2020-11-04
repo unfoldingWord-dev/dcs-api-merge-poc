@@ -41,6 +41,9 @@ else
   echo "EXISTS. DELETED. $response"
 fi
 
+read -p "
+Press ENTER to continue"
+
 # CREATE REPO
 echo "
 =========

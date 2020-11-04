@@ -6,7 +6,7 @@ repo="dcs-poc-repo-merge-conflicts"
 branch="user-tc-create-1"
 
 #USER INPUT
-read -p "Enter the name of the repo to use in the `dcs-poc-org` org [${repo}]: " repo_input
+read -p "Enter the name of the repo to use in the dcs-poc-org org [${repo}]: " repo_input
 repo=${repo_input:-$repo}
 
 read -p "Enter the name of the user branch [${branch}]: " branch_input

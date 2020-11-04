@@ -1,6 +1,6 @@
 #### CONSTANTS
 host="https://qa.door43.org"
-token="990fa26ab7770f665920d6c91c1e2a7728061a9c"
+token="c8b93b7ccf7018eee9fec586733a532c5f858cdd"
 org="dcs-poc-org"
 repo="dcs-poc-repo"
 

@@ -34,11 +34,12 @@ echo "
 DELETING REPO $repo IF EXISTS:
 
 "
-response=$(curl --silent --write-out '%{http_code}' --output /dev/null -X DELETE "$host/api/v1/repos/$org/$repo?access_token=$token" -H "accept: application/json")
+
+response=$(curl --silent --write-out '%{http_code}' --output /dev/null -X DELETE $host/api/v1/repos/$org/$repo?access_token=$token -H "accept: application/json")
 if [[ "$response" == "404" ]]; then
-  echo "DOESN'T ALREADY EXIST, SKIPPING."
+  echo -e "\nDOESN'T ALREADY EXIST, SKIPPING."
 else
-  echo "EXISTS. DELETED. $response"
+  echo -e "\nEXISTS. DELETED. $response"
 fi
 
 # CREATE REPO
@@ -47,8 +48,9 @@ echo "
 CREATING REPO $repo:
 
 "
-response=$(curl --silent -X POST "$host/api/v1/orgs/$org/repos?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"auto_init\": true, \"default_branch\": \"master\", \"description\": \"$repo\", \"license\": \"CC-BY-SA-4.0.md\", \"name\": \"$repo\", \"private\": false, \"readme\": \"Default\"}")
-echo "$response"
+
+response=$(curl --silent -X POST $host/api/v1/orgs/$org/repos?access_token=$token -H 'accept: application/json' -H 'Content-Type: application/json' -d "{ \"auto_init\": true, \"default_branch\": \"master\", \"description\": \"$repo\", \"license\": \"CC-BY-SA-4.0.md\", \"name\": \"$repo\", \"private\": false, \"readme\": \"Default\"}")
+echo -e "\n$response"
 
 read -p "
 Press ENTER to continue"
@@ -164,6 +166,52 @@ MODIFYING $file2_name IN master BRANCH:
 "
 response=$(curl --silent -X PUT "$host/api/v1/repos/$org/$repo/contents/$file2_name?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"branch\": \"master\", \"content\": \"$master_modified_file2_base64\", \"message\": \"Updates $file2_name in master branch\", \"sha\": \"$file2_sha\"}")
 echo "$response"
+
+read -p "
+Press ENTER to continue"
+
+#### MAKE PR FOR user branch into master
+echo "
+=========
+MAKING PR FOR master INTO USER BRANCH $branch:
+
+"
+response=$(curl --silent -X POST "$host/api/v1/repos/$org/$repo/pulls?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"base\": \"$branch\", \"body\": \"Merging master into user branch\", \"head\": \"master\", \"title\": \"master into $branch\"}")
+echo "$response"
+
+pr_num=$(echo "$response" | jq -r '.number')
+pr_url=$(echo "$response" | jq -r '.url')
+diff_url=$(echo "$response" | jq -r '.diff_url')
+patch_url=$(echo "$response" | jq -r '.path_url')
+mergeable=$(echo "$response" | jq -r '.mergeable')
+
+echo -e "
+PR URL: $pr_url
+DIFF URL: $diff_url
+
+MERGEABLE: $mergeable"
+
+read -p "
+Press ENTER to continue"
+
+if [[ $mergeable == "false" ]]; then
+  echo -e "\nIS NOT MERGEABLE!"
+  exit
+fi
+echo -e "\nIS MERGEABLE!"
+
+#### MERGE PR
+echo "
+=========
+MERGING PR FOR master INTO USER BRANCH $branch:
+
+"
+response=$(curl --silent --write-out '%{http_code}' --output /dev/null -X POST "$host/api/v1/repos/$org/$repo/pulls/$pr_num/merge?access_token=$token" -H "accept: application/json" -H "Content-Type: application/json" -d "{ \"Do\": \"merge\", \"force_merge\": false}")
+if [[ "$response" != "200" ]]; then
+  echo "WAS NOT ABLE TO MERGE!! RESPONSE CODE: $response" 
+  exit
+fi
+echo -e "MERGE WAS SUCCESSFUL!\n\n"
 
 read -p "
 Press ENTER to continue"

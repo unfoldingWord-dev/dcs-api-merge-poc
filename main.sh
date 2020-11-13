@@ -5,6 +5,16 @@ org="dcs-poc-org"
 repo="dcs-poc-repo"
 branch="user-tc-create-1"
 
+rm -rf test;
+mkdir test;
+cd test;
+mkdir $repo;
+cd $repo;
+git init;
+git status;
+
+exit;
+
 #USER INPUT
 read -p "Enter the name of the repo to use in the dcs-poc-org org [${repo}]: " repo_input
 repo=${repo_input:-$repo}

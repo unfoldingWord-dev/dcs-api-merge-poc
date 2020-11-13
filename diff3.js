@@ -1,8 +1,6 @@
 const Diff3 = require('node-diff3');                   // UMD import all
 const diff3Merge = require('node-diff3').diff3Merge;   // UMD import named
-const readline = require('readline');
 const fs = require('fs');
-const prompt = require('prompt');
 
 var orig_file1;
 var master_file1;
@@ -30,19 +28,7 @@ function makePick(callback) {
           makePick(callback);
         } else {
           console.log("choice", choice);
-          switch(choice) {
-            case "1":
-              merged = merged.concat(pick1);
-              break;
-            case "2":
-              merged = merged.concat(pick2);
-              break;
-            default:
-              print.stdout.write("Choice not valid\n");
-              makePick(callback);
-              return;
-          }
-          callback();
+          callback(choice);
         }
     });
 }
@@ -57,6 +43,7 @@ function printLinesPromptForConflicts(callback) {
             console.log("MY LINE", line);
             printNextLine(line);
         } else {
+            console.log("CALLING CALLBACK");
             callback();
         }
     }
@@ -67,16 +54,33 @@ function printLinesPromptForConflicts(callback) {
         case "\n<<<<<<<<<\n":
           state = 1;
           console.log("In state 1");
-          continueProcessing();
           break;
         case "\n=========\n":
           state = 2;
           console.log("In state 2");
-          continueProcessing();
           break;
         case "\n>>>>>>>>>\n":
           state = 0;
-          break;
+          const pickCallback = function(choice) {
+            switch(choice) {
+              case "1":
+                merged = merged.concat(pick1);
+                break;
+              case "2":
+                merged = merged.concat(pick2);
+                break;
+              default:
+                print.stdout.write("Choice not valid\n");
+                makePick(pickCallback);
+                return;
+            }
+            pick1 = [];
+            pick2 = [];
+            process.stdin.pause();
+            continueProcessing();
+          };
+          makePick(pickCallback);
+          return;
         default:
           console.log("STATE: "+state);
           if (state == 1) {
@@ -86,23 +90,15 @@ function printLinesPromptForConflicts(callback) {
             pick2.push(line);
             console.log("PICK2", pick2);
          } else {
-           if (pick1.length || pick2.length) {
-             const pickCallback = function(choice) {
-               pick1 = [];
-               pick2 = [];
-               process.stdin.pause();
-               continueProcessing();
-            };
-            makePick(pickCallback);
-            return;
-           }
            merged.push(line);
            console.log("ADD LINE TO MERGED", line);
          }
       }
+      console.log("CALLING CONTINUE!!!");
       continueProcessing();
     }
 
+    console.log("HERE ONCE!!!");
     continueProcessing();
 }
   

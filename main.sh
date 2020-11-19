@@ -2,18 +2,8 @@
 host="https://qa.door43.org"
 token="c8b93b7ccf7018eee9fec586733a532c5f858cdd"
 org="dcs-poc-org"
-repo="dcs-poc-repo"
+repo="dcs-resolve-conflict-poc"
 branch="user-tc-create-1"
-
-rm -rf test;
-mkdir test;
-cd test;
-mkdir $repo;
-cd $repo;
-git init;
-git status;
-
-exit;
 
 #USER INPUT
 read -p "Enter the name of the repo to use in the dcs-poc-org org [${repo}]: " repo_input
@@ -194,6 +184,7 @@ pr_url=$(echo "$response" | jq -r '.url')
 diff_url=$(echo "$response" | jq -r '.diff_url')
 patch_url=$(echo "$response" | jq -r '.path_url')
 mergeable=$(echo "$response" | jq -r '.mergeable')
+merge_base=$(echo "$response" | jq -r ".merge_base")
 
 echo -e "
 PR URL: $pr_url
@@ -201,14 +192,52 @@ DIFF URL: $diff_url
 
 MERGEABLE: $mergeable"
 
+if [[ $mergeable == "true" ]]; then
+  echo -e "\nIS MERGEABLE! WE SHOULDN'T BE HERE! EXITING..."
+  exit
+fi
+echo -e "\nIS NOT MERGEABLE!"
+
 read -p "
 Press ENTER to continue"
 
-if [[ $mergeable == "false" ]]; then
-  echo -e "\nIS NOT MERGEABLE!"
-  exit
-fi
-echo -e "\nIS MERGEABLE!"
+#### GET MERGE BASE FILE 1
+echo "
+=========
+GETTING CONTENT OF FILE 1 AT MERGE BASE $merge_base:
+
+"
+response=$(curl --silent -X GET "$host/api/v1/repos/$org/$repo/contents/$file1_name?ref=$merge_base&access_token=$token" -H "accept: application/json")
+merge_base_file1_content=$(echo "$response" | jq -r ".content" | base64 -d)
+echo "$merge_base_file1_content"
+echo "$merge_base_file1_content" > "merge_base_{$file1_name}";
+
+#### GET master HEAD FILE 1
+echo "
+=========
+GETTING CONTENT OF FILE 1 AT master HEAD:
+
+"
+response=$(curl --silent -X GET "$host/api/v1/repos/$org/$repo/contents/$file1_name?ref=master&access_token=$token" -H "accept: application/json")
+merge_base_file1_content=$(echo "$response" | jq -r ".content" | base64 -d)
+echo "$merge_base_file1_content"
+echo "$merge_base_file1_content" > "merge_base_{$file1_name}";
+
+exit;
+
+#### GET MERGED MASTER FILE 1
+echo "
+=========
+GETTING CONTENT OF FILE 1 AT :
+
+"
+response=$(curl --silent -X GET "$host/api/v1/repos/$org/$repo/contents/$file1_name?ref=$merge_base&access_token=$token" -H "accept: application/json")
+merge_base_file1_content=$(echo "$response" | jq -r ".content" | base64 -d)
+echo "$merge_base_file1_content"
+
+echo "$merge_base_file1_content" > "merge_base_{$file1_name}";
+
+exit;
 
 #### MERGE PR
 echo "

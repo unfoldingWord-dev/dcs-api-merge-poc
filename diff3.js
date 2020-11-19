@@ -1,6 +1,21 @@
 const Diff3 = require('node-diff3');                   // UMD import all
 const diff3Merge = require('node-diff3').diff3Merge;   // UMD import named
 const fs = require('fs');
+const readline = require("readline");
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+rl.on("close", function() {
+    console.log("\nBYE BYE !!!");
+    process.exit(0);
+});
+
+const host = "https://qa.door43.org";
+const token = "c8b93b7ccf7018eee9fec586733a532c5f858cdd";
+const org = "dcs-poc-org";
+var repo = "dcs-resolve-conflict-poc";
+var branch = "user-tc-create-1";
 
 var orig_file1;
 var master_file1;
@@ -12,14 +27,36 @@ var pick1 = [];
 var pick2 = [];
 var state = 0;
 
+function main() {
+    console.log("Org: "+org);
+    console.log("Repo: "+repo);
+    console.log("User branch: "+branch);
+    console.log("DCS URL: "+host+"/"+org+"/"+repo);
+
+    const r = diff3Merge(user_file1, orig_file1, master_file1);
+    console.log(r);
+    lines = r.result;
+    printLinesPromptForConflicts(function () {
+      console.log("MERGED FILE:");
+      for(var i=0; i < merged.length; i++) {
+        process.stdout.write((i + 1)+": "+merged[i]+"\n");
+      }
+    });
+}
+
 function makePick(callback) {
     'use strict';
-    console.log(pick1);
-    console.log(pick2);
     process.stdin.resume();
-    process.stdout.write("Please pick 1 or 2:\n");
-    process.stdout.write("1:\n" + pick1.join("\n") + "\n\n");
-    process.stdout.write("2:\n" + pick2.join("\n") + "\n\n");
+    process.stdout.write("\nMERGE CONFLICT:\n");
+    process.stdout.write("1 (YOURS):\n");
+    for(var i=0; i < pick1.length; i++) {
+      process.stdout.write((merged.length + i + 1)+": "+pick1[i]+"\n");
+    }
+    process.stdout.write("\n\n2 (THEIRS):\n");
+    for(var i=0; i < pick2.length; i++) {
+      process.stdout.write((merged.length + i + 1)+": "+pick2[i]+"\n");
+    }
+    process.stdout.write("\nPlease pick 1 or 2: \n");
     process.stdin.once("data", function (data) {
       const choice = data.toString().trim();
       console.log("CHOICE", choice);
@@ -37,27 +74,21 @@ function printLinesPromptForConflicts(callback) {
     'use strict';
 
     function continueProcessing() {
-        console.log("LINES ("+lines.length+")", lines);
         if (lines.length) {
             var line = lines.shift();
-            console.log("MY LINE", line);
             printNextLine(line);
         } else {
-            console.log("CALLING CALLBACK");
             callback();
         }
     }
 
     function printNextLine(line) {
-      console.log("line " + (merged.length + 1), line);
       switch(line) {
         case "\n<<<<<<<<<\n":
           state = 1;
-          console.log("In state 1");
           break;
         case "\n=========\n":
           state = 2;
-          console.log("In state 2");
           break;
         case "\n>>>>>>>>>\n":
           state = 0;
@@ -82,27 +113,22 @@ function printLinesPromptForConflicts(callback) {
           makePick(pickCallback);
           return;
         default:
-          console.log("STATE: "+state);
           if (state == 1) {
             pick1.push(line);
-            console.log("PICK1", pick1);
           } else if (state == 2) {
             pick2.push(line);
-            console.log("PICK2", pick2);
          } else {
+           console.log((merged.length + 1) + ":", line);
            merged.push(line);
-           console.log("ADD LINE TO MERGED", line);
          }
       }
-      console.log("CALLING CONTINUE!!!");
       continueProcessing();
     }
 
-    console.log("HERE ONCE!!!");
     continueProcessing();
 }
   
-if (process.argv.length > 2) {
+if (process.argv.length > 4) {
     var filename1 = process.argv[2];
     var filename2 = process.argv[3];
     var filename3 = process.argv[4];
@@ -110,15 +136,22 @@ if (process.argv.length > 2) {
     orig_file1 = fs.readFileSync(process.argv[2], 'utf8').split('\n');
     user_file1 = fs.readFileSync(process.argv[3], 'utf8').split('\n');
     master_file1 = fs.readFileSync(process.argv[4], 'utf8').split('\n');
-    const r = Diff3.merge(user_file1, orig_file1, master_file1);
-    console.log(r);
-    lines = r.result;
-    printLinesPromptForConflicts(function () {
-      console.log('Were done now');
 
-      console.log("MERGED", merged);
-    });
+    rl.question("Enter the name of the repo to use in the dcs-poc-org org ["+repo+"]: ",      function(repo_input) {
+        if (repo_input) {
+          repo = repo_input;
+        }
+        rl.question("Enter the name of the user branch ["+branch+"]: ", function(branch_input) {
+          if (branch_input) {
+            branch = branch_input;
+          }
+          main();
+          rl.close();
+        });
+      }
+    );    
 } else {
     console.error("File name must be supplied on command line.");
     process.exit(1);
 }
+

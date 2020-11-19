@@ -1,2 +1,5 @@
 language = "bash"
 run = "bash main.sh"
+
+#language = "node"
+#run = "node diff3.js user_modified_file1.md file1.md master_modified_file1.md"

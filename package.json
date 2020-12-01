@@ -4,7 +4,13 @@
   "description": "This is a proof of concept for showing a repo can be set up, a master branch initialized with files, a user branch made, and then changes are made to both branches, and then the user branch can be merged into master, all using the DCS/Gitea API.",
   "main": "diff3.js",
   "dependencies": {
-    "node-diff3": "^2.1.0"
+    "node-diff3": "^2.1.0",
+    "npm-diff": "^1.0.0",
+    "parse-diff": "^0.7.1",
+    "prompt-sync": "^4.2.0",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
+    "then-request": "^6.0.2"
   },
   "devDependencies": {},
   "scripts": {

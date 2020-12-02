@@ -116,6 +116,7 @@ async function handleMergeConflicts() {
   }
 
   console.log(`NEW USER BRANCH REBASED WITH master: ${host}/${org}/${repo}/src/branch/${ternary_branch_name} (should be renamed to ${pr.base.label})`);
+  console.log("NEXT STEPS WOULD BE\n1) DELETE OLD USER BRANCH\n2) RENAME TERNARY BRANCH TO OLD USER BRANCH NAME\n3) CLOSE PR WITHOUT MERGING (NO NEED TO MAKE A PR NOW)")
 }
 
 async function resolvedMergeContent(filename) {

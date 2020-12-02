@@ -1,6 +1,8 @@
-# Proof of Concept to use DCS API to resolve two files that have conflicts from a common original file.
+# Proof of Concept to use DCS API to resolve conflicts in a PR
 
 This is a proof of concept for showing how one can give a PR number for a repo that has conflicts and those conflicts can be resolved through the Gitea API making a new branch that has been rebased from master with the user's changes so it no longer conflicts with master.
+
+It will properly go through all changed files and only for files with conflicts will ask the user to resolve each conflict block by picking lines from their branch or from master. Files that have changed but don't have conflicts will be properly updated in the new branch with changes from both master and the user.
 
 GitHube Repo for POC scripts/files: https://github.com/unfoldingWord-dev/dcs-api-merge-poc/tree/resolve-conflicts
 

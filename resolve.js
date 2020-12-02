@@ -42,31 +42,9 @@ function main() {
   console.log("PR URL: "+host+"/"+org+"/"+repo+"/pulls/"+pr_num);
 
   handleMergeConflicts().then(() => {
-    console.log("DONE!!");
+    console.log("DONE!");
   });
 };
-
-async function getTempBranchName() {
-  var i = 1;
-  while(true) {
-    temp_name = `${pr.base.label}_temp_branch-${i}`;
-    /* SEE IF BRANCH EXISTS */
-    try {
-      await rp({uri: `${host}/api/v1/repos/${org}/${repo}/branches/${temp_name}`, method: 'GET', headers: {'Authorization': token}, json: true});
-      console.log(`BRANCH EXISTS, ${temp_name}, TRYING ANOTHER NAME...`);
-      ++i;
-    } catch (error) {
-      if (error.statusCode == "404") {
-        console.log(`BRANCH ${temp_name} DOESN'T EXIST...USING IT AS OUR TERNARY BRANCH.`);
-        return temp_name;
-      } else {
-        console.log(`ERROR SEEING IF BRANCH ${temp_name} EXISTS:`)
-        console.log(error.error);
-        exit(1);
-      }
-    }
-  }
-}
 
 async function handleMergeConflicts() {
   /* GET PR FOR pr_num */
@@ -79,22 +57,65 @@ async function handleMergeConflicts() {
     exit(1);
   }
 
-  ternary_branch_name = await getTempBranchName();
-
   if (pr.mergeable) {
     merged = await doSquashMergePR();
     if (merged) {
+      console.log(`PR WAS MERGEABLE (NO CONFLICTS) SO master WAS MERGED INTO ${pr.base.label}.`)
       return;
     }
   }
 
   diff = await rp({uri: pr.diff_url});
-  console.log(diff);
   const files = parse_diff(diff);
+
+  console.log(`\nPARSED DIFF OF ${pr.diff_url}:`);
+  console.log(JSON.stringify(files, null, 4), "\n");
+
+
+  ternary_branch_name = `${pr.base.label}_ternary_branch`;
+  /* DELETE TERNARY BRANCH IF IT EXISTS */
+  try {
+    await rp({uri: `${host}/api/v1/repos/${org}/${repo}/branches/${ternary_branch_name}`, method: 'DELETE', headers: {'Authorization': token}, json: true});
+  } catch (error) {
+    if (error.statusCode != "404") {
+      console.log(`ERROR DELETING TERNARY BRANCH ${ternary_branch_name}:`)
+      console.log(error.error);
+      exit(1);
+    }
+  }
 
   for(var i = 0; i < files.length; i++) {
     await resolvedMergeContent(files[i].from);
   }
+
+  /* NOW TO CLEAN UP BRANCHES */
+
+  /* WE NEED THE FILE OBJECTS OF ONE OF THE FILES TO RENAME THE BRANCHES */
+  const filename = files[0].from;
+
+  /* GETTING FILE OBJECT OF FILE1 FOR NEW TERNARY BRANCH */
+  var ternary_file1;
+  try {
+    ternary_file1 = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${ternary_branch_name}`, method: 'GET', headers: {'Authorization': token}, json: true});
+    console.log(`GOT FILE ${filename} FOR ${ternary_branch_name}`);
+  } catch (error) {
+    console.log(`ERROR GETTING FILE ${filename} FOR ${ternary_branch_name}:`);
+    console.log(error.error);
+    exit(1);
+  }
+
+  /* GETTING FILE OBJECT OF FILE1 FOR OLD USER BRANCH */
+  var user_file1;
+  try {
+    user_file1 = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${pr.base.label}`, method: 'GET', headers: {'Authorization': token}, json: true});
+    console.log(`GOT FILE ${filename} FOR ${pr.base.label}`);
+  } catch (error) {
+    console.log(`ERROR GETTING FILE ${filename} FOR ${pr.base.label}:`);
+    console.log(error.error);
+    exit(1);
+  }
+
+  console.log(`NEW USER BRANCH REBASED WITH master: ${host}/${org}/${repo}/src/branch/${ternary_branch_name} (should be renamed to ${pr.base.label})`);
 }
 
 async function resolvedMergeContent(filename) {
@@ -136,12 +157,14 @@ async function resolvedMergeContent(filename) {
   const user_content = Buffer.from(res.content, 'base64').toString('utf8');
 
   const diff_merge = diff3Merge(user_content.split("\n"), base_content.split("\n"), master_content.split("\n"));
-  console.log(diff_merge);
+  
+  console.log(`DIFF3 MERGE OF ${filename}`)
+  console.log(JSON.stringify(diff_merge, null, 4), "\n");
 
   var merged_lines = [];
   if (diff_merge.length == 1 && diff_merge[0].hasOwnProperty('ok')) {
     merged_lines = diff_merge[0].ok;
-    console.log("NO-CONFLICT FILE:");
+    console.log("\nNO-CONFLICT FILE:");
   } else {
     diff_merge.forEach(group => {
       if (group.hasOwnProperty('ok')) {
@@ -153,11 +176,12 @@ async function resolvedMergeContent(filename) {
         merged_lines = merged_lines.concat(makePick(group));
       }
     });
-    console.log("MERGED CONFLICT FILE:");
+    console.log("\nMERGED CONFLICT FILE:");
   }
   merged_lines.forEach((line, i) => {
     console.log((i + 1)+": "+line);
   });
+  console.log("\n");
 
   var branch = ternary_branch_name;
   var new_branch = null;

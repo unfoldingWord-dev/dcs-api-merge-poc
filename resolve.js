@@ -2,15 +2,18 @@ const diff3Merge = require('node-diff3').diff3Merge;   // UMD import named
 const fs = require('fs');
 const prompt = require('prompt-sync')();
 const https = require('https');
-const { exit } = require('process');
+const { exit, memoryUsage } = require('process');
 var rp = require('request-promise');
 var parse_diff = require('parse-diff');
+const { constants } = require('perf_hooks');
 var host = "https://qa.door43.org";
 var token = "token c8b93b7ccf7018eee9fec586733a532c5f858cdd";
 var org = "dcs-poc-org";
 var repo = "dcs-resolve-conflict-poc";
 var pr_num = "1";
-var ternary_created = false;
+var pr;
+var ternary_branch_name = null;
+var ternary_branch_made = false;
 var merge_base = null;
 
 function main() {
@@ -40,133 +43,162 @@ function main() {
   console.log("PR #: "+pr_num);
   console.log("PR URL: "+host+"/"+org+"/"+repo+"/pulls/"+pr_num);
 
-  handleMergeConflict().then(() => {
+  handleMergeConflicts().then(() => {
     console.log("DONE!!");
   });
+};
+
+async function getTempBranchName() {
+  var i = 1;
+  while(true) {
+    temp_name = `${pr.base.label}_temp_branch-${i}`;
+    /* SEE IF BRANCH EXISTS */
+    try {
+      await rp({uri: `${host}/api/v1/repos/${org}/${repo}/branches/${temp_name}`, method: 'GET', headers: {'Authorization': token}, json: true});
+      console.log(`BRANCH EXISTS, ${temp_name}, TRYING ANOTHER NAME...`);
+      ++i;
+    } catch (error) {
+      if (error.statusCode == "404") {
+        console.log(`BRANCH ${temp_name} DOESN'T EXIST...USING IT AS OUR TERNARY BRANCH.`);
+        return temp_name;
+      } else {
+        console.log(`ERROR SEEING IF BRANCH ${temp_name} EXISTS:`)
+        console.log(error.error);
+        exit(1);
+      }
+    }
+  }
 }
 
-async function handleMergeConflict() {
+async function handleMergeConflicts() {
   /* GET PR FOR pr_num */
   try {
-    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/pulls/${pr_num}`, method: 'GET', headers: {'Authorization': token}, json: true});
-    console.log(`GOT PR ${res.url}`);
+    pr = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/pulls/${pr_num}`, method: 'GET', headers: {'Authorization': token}, json: true});
+    console.log(`GOT PR ${pr.url}`);
   } catch (error) {
-    console.log(`ERROR GET PR #${pr_num}:`);
+    console.log(`ERROR GETTING PR #${pr_num}:`);
     console.log(error.error);
     exit(1);
   }
 
-  const pr_url = res.url;
-  const diff_url = res.diff_url;
-  const patch_url = res.patch_url;
-  const mergeable = res.mergeable;
-  merge_base = res.merge_base;
+  ternary_branch_name = await getTempBranchName();
 
-  if (mergeable) {
+  if (pr.mergeable) {
     merged = await doSquashMergePR();
     if (merged) {
       return;
     }
   }
 
-  res = await rp({uri: diff_url});
-  console.log(res);
-  const files = parse_diff(res);
+  diff = await rp({uri: pr.diff_url});
+  console.log(diff);
+  const files = parse_diff(diff);
 
-  files.forEach(file => {
-    await resolveConflicts(file);
+  for(var i = 0; i < files.length; i++) {
+    await resolvedMergeContent(files[i].from);
   }
 }
 
-function resolveConflicts(file, merge_base) {
-  filename = file.from;
-  
+async function resolvedMergeContent(filename) {
+  /* GET MERGE BASE FILE CONTENT */
   try {
-    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${merge_base}`, method: 'GET', headers: {'Authorization': token}, json: true});
-    console.log(`GOT FILE ${file1_name} FOR MERGE BreturnASE ${merge_base}`);
+    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${pr.merge_base}`, method: 'GET', headers: {'Authorization': token}, json: true});
+    console.log(`GOT FILE ${filename} FOR MERGE BASE ${pr.merge_base}`);
   } catch (error) {
-    console.log(`ERROR GETTING FILE ${file1_name} FOR MERGE BASE ${merge_base}:`);
+    console.log(`ERROR GETTING FILE ${filename} FOR MERGE BASE ${pr.merge_base}:`);
     console.log(error.error);
     exit(1);
   }
 
-  console.log(merge_base);
-  const orig_file1_content = Buffer.from(res.content, 'base64').toString('utf8');
-  console.log('decoded', merge_base_file1_content);
-  console.log('base64', res.content);
-  exit(1);
+  const base_content = Buffer.from(res.content, 'base64').toString('utf8');
 
+  /* GET MASTER FILE CONTENT */
   try {
-    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${file1_name}?ref=master`, method: 'GET', headers: {'Authorization': token}, json: true});
-    console.log(`GOT FILE ${file1_name} FOR master`);
+    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${pr.head.sha}`, method: 'GET', headers: {'Authorization': token}, json: true});
+    console.log(`GOT FILE ${filename} FOR master (${pr.head.sha})`);
   } catch (error) {
-    console.log(`ERROR GETTING FILE ${file1_name} FOR master:`);
+    console.log(`ERROR GETTING FILE ${filename} FOR master (${pr.head.sha}):`);
     console.log(error.error);
     exit(1);
   }
 
-  const master_file1_content = Buffer.from(res.content, 'base64').toString('utf8');
-  console.log('decoded', master_file1_content);
-  console.log('base64', res.content);
+  const master_content = Buffer.from(res.content, 'base64').toString('utf8');
+  const sha = res.sha;
 
+  /* GET USER BRANCH FILE CONTENT */
   try {
-    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${file1_name}?ref=${branch}`, method: 'GET', headers: {'Authorization': token}, json: true});
-    console.log(`GOT FILE ${file1_name} FOR master`);
+    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${pr.base.label}`, method: 'GET', headers: {'Authorization': token}, json: true});
+    console.log(`GOT FILE ${filename} FOR ${pr.base.label}`);
   } catch (error) {
-    console.log(`ERROR GETTING FILE ${file1_name} FOR master:`);
+    console.log(`ERROR GETTING FILE ${filename} FOR ${pr.base.label}:`);
     console.log(error.error);
     exit(1);
   }
 
-  const user_file1_content = Buffer.from(res.content, 'base64').toString('utf8');
-  console.log('decoded', user_file1_content);
-  console.log('base64', res.content);
+  const user_content = Buffer.from(res.content, 'base64').toString('utf8');
 
-  resolveConflicts(user_file1_content, orig_file1_content, master_file1_content)
-}
+  const diff_merge = diff3Merge(user_content.split("\n"), base_content.split("\n"), master_content.split("\n"));
+  console.log(diff_merge);
 
-function resolveConflicts(user_file1, orig_file1, master_file1) {
-  const items = diff3Merge(user_file1, orig_file1, master_file1);
-  console.log(items);
-  items.forEach(item => {
-    if (item.hasOwnProperty('ok')) {
-      merged = merged.concat(item.ok);
-    } else if (item.hasOwnProperty('conflict')) {
-      makePick(item);
-    }
-  });
+  var merged_lines = [];
+  if (diff_merge.length == 1 && diff_merge[0].hasOwnProperty('ok')) {
+    merged_lines = diff_merge[0].ok;
+  } else {
+    diff_merge.forEach(group => {
+      if (group.hasOwnProperty('ok')) {
+        merged_lines = merged_lines.concat(group.ok);
+      } else if (group.hasOwnProperty('conflict')) {
+        merged_lines = merged_lines.concat(makePick(group));
+      }
+    });
+  }
   console.log("MERGED FILE:");
-  merged.forEach((line, i) => {
+  merged_lines.forEach((line, i) => {
     console.log((i + 1)+": "+line);
   });
+
+  var branch = ternary_branch_name;
+  var new_branch = null;
+  if (! ternary_branch_made) {
+    new_branch = ternary_branch_name;
+    branch = pr.head.label;
+    ternary_branch_made = true;
+  }
+
+  /* COMMIT MERGED FILE TO TERNARY BRANCH */
+  try { 
+    res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}`, method: 'PUT', headers: {'Authorization': token}, json: {
+      sha, branch, new_branch, content: Buffer.from(merged_lines.join('\n')).toString('base64'),
+    }});
+    console.log(`UPDATED FILE ${filename} IN TERNARY BRANCH ${ternary_branch_name}`);
+  } catch (error) {
+    console.log(`ERROR UPDATING FILE ${filename} IN TERNARY BRANCH ${ternary_branch_name}:`);
+    console.log(error.error);
+    exit(1);
+  }
 }
 
-function makePick(item) {
+function makePick(conflict_group) {
     console.log("\nMERGE CONFLICT:");
     console.log("1 (YOURS):");
-    item.conflict.a.forEach((line, i) => {
-      console.log((merged.length + i + 1)+": "+line);
+    conflict_group.conflict.a.forEach((line, i) => {
+      console.log((conflict_group.conflict.aIndex + i)+": "+line);
     });
     console.log("\n\n2 (THEIRS):");
-    item.conflict.b.forEach((line, i) => {
-      console.log((merged.length + i + 1)+": "+line);
+    conflict_group.conflict.b.forEach((line, i) => {
+      console.log((conflict_group.conflict.bIndex + i)+": "+line);
     });
-    var choice = "";
-    while(choice != "1" && choice != "2") {  
-      choice = prompt("\nPlease pick 1 or 2: ").trim();
+    while(true) {
+      var choice = prompt("\nPlease pick 1 or 2: ").trim();
       console.log("CHOICE", choice);
       switch(choice) {
         case "1":
-          merged = merged.concat(item.conflict.a);
-          break;
+          return conflict_group.conflict.a;
         case "2":
-          merged = merged.concat(item.conflict.b);
-          break;
-        default:
-          console.log("Invalid choice. Please choose again.");
+          return conflict_group.conflict.b;
       }
+      console.log("Invalid choice. Please choose again.");
     }
-    return choice;
 }
 
 async function doSquashMergePR() {

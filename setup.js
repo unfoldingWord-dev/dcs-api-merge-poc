@@ -73,15 +73,13 @@ async function setup() {
     exit(1);
   }
 
-  process.chdir(__dirname);
+  file1 = fs.readFileSync(`files/${file1_name}`, 'utf8');
+  user_file1 = fs.readFileSync(`files/user_modified_${file1_name}`, 'utf8');
+  master_file1 = fs.readFileSync(`files/master_modified_${file1_name}`, 'utf8');
 
-  file1 = fs.readFileSync(file1_name, 'utf8');
-  user_file1 = fs.readFileSync(`user_modified_${file1_name}`, 'utf8');
-  master_file1 = fs.readFileSync(`master_modified_${file1_name}`, 'utf8');
-
-  file2 = fs.readFileSync(file2_name, 'utf8');
-  user_file2 = fs.readFileSync(`user_modified_${file2_name}`, 'utf8');
-  master_file2 = fs.readFileSync(`master_modified_${file2_name}`, 'utf8');
+  file2 = fs.readFileSync(`files/${file2_name}`, 'utf8');
+  user_file2 = fs.readFileSync(`files/user_modified_${file2_name}`, 'utf8');
+  master_file2 = fs.readFileSync(`files/master_modified_${file2_name}`, 'utf8');
 
   /* CREATE file1.md IN master */
   try {
@@ -139,9 +137,9 @@ async function setup() {
       message: `Modifies ${file2_name} in branch ${branch}`,
       sha: file2_sha
     }});
-    console.log(`UPDATED ${file1_name} IN ${branch}.`);
+    console.log(`UPDATED ${file2_name} IN ${branch}.`);
   } catch (error) {
-    console.log(`ERROR UPDATING FILE ${file1_name} AND CREATING BRANCH ${branch}:`);
+    console.log(`ERROR UPDATING FILE ${file2_name} AND CREATING BRANCH ${branch}:`);
     console.log(error.error);
     exit(1);
   }
@@ -165,13 +163,13 @@ async function setup() {
   try {
     res = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${file2_name}`, method: 'PUT', headers: {'Authorization': token}, json: {
       branch: "master",
-      content: Buffer.from(master_file1).toString('base64'),
+      content: Buffer.from(master_file2).toString('base64'),
       message: `Modifies ${file2_name} in branch master`,
       sha: file2_sha
     }});
     console.log(`UPDATED ${file2_name} IN master.`);
   } catch (error) {
-    console.log(`ERROR UPDATING FILE ${file1_name} IN master:`);
+    console.log(`ERROR UPDATING FILE ${file2_name} IN master:`);
     console.log(error.error);
     exit(1);
   }

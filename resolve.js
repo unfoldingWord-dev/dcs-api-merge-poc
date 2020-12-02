@@ -88,33 +88,6 @@ async function handleMergeConflicts() {
     await resolvedMergeContent(files[i].from);
   }
 
-  /* NOW TO CLEAN UP BRANCHES */
-
-  /* WE NEED THE FILE OBJECTS OF ONE OF THE FILES TO RENAME THE BRANCHES */
-  const filename = files[0].from;
-
-  /* GETTING FILE OBJECT OF FILE1 FOR NEW TERNARY BRANCH */
-  var ternary_file1;
-  try {
-    ternary_file1 = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${ternary_branch_name}`, method: 'GET', headers: {'Authorization': token}, json: true});
-    console.log(`GOT FILE ${filename} FOR ${ternary_branch_name}`);
-  } catch (error) {
-    console.log(`ERROR GETTING FILE ${filename} FOR ${ternary_branch_name}:`);
-    console.log(error.error);
-    exit(1);
-  }
-
-  /* GETTING FILE OBJECT OF FILE1 FOR OLD USER BRANCH */
-  var user_file1;
-  try {
-    user_file1 = await rp({uri: `${host}/api/v1/repos/${org}/${repo}/contents/${filename}?ref=${pr.base.label}`, method: 'GET', headers: {'Authorization': token}, json: true});
-    console.log(`GOT FILE ${filename} FOR ${pr.base.label}`);
-  } catch (error) {
-    console.log(`ERROR GETTING FILE ${filename} FOR ${pr.base.label}:`);
-    console.log(error.error);
-    exit(1);
-  }
-
   console.log(`NEW USER BRANCH REBASED WITH master: ${host}/${org}/${repo}/src/branch/${ternary_branch_name} (should be renamed to ${pr.base.label})`);
   console.log("NEXT STEPS WOULD BE\n1) DELETE OLD USER BRANCH\n2) RENAME TERNARY BRANCH TO OLD USER BRANCH NAME\n3) CLOSE PR WITHOUT MERGING (NO NEED TO MAKE A PR NOW)")
 }

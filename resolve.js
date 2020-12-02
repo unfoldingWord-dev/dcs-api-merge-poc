@@ -1,11 +1,9 @@
 const diff3Merge = require('node-diff3').diff3Merge;   // UMD import named
-const fs = require('fs');
 const prompt = require('prompt-sync')();
-const https = require('https');
-const { exit, memoryUsage } = require('process');
+const { exit } = require('process');
 var rp = require('request-promise');
 var parse_diff = require('parse-diff');
-const { constants } = require('perf_hooks');
+
 var host = "https://qa.door43.org";
 var token = "token c8b93b7ccf7018eee9fec586733a532c5f858cdd";
 var org = "dcs-poc-org";
@@ -143,16 +141,20 @@ async function resolvedMergeContent(filename) {
   var merged_lines = [];
   if (diff_merge.length == 1 && diff_merge[0].hasOwnProperty('ok')) {
     merged_lines = diff_merge[0].ok;
+    console.log("NO-CONFLICT FILE:");
   } else {
     diff_merge.forEach(group => {
       if (group.hasOwnProperty('ok')) {
+        group.ok.forEach((line, index) => {
+          console.log(`${merged_lines.length + index + 1}: ${line}`);
+        })
         merged_lines = merged_lines.concat(group.ok);
       } else if (group.hasOwnProperty('conflict')) {
         merged_lines = merged_lines.concat(makePick(group));
       }
     });
+    console.log("MERGED CONFLICT FILE:");
   }
-  console.log("MERGED FILE:");
   merged_lines.forEach((line, i) => {
     console.log((i + 1)+": "+line);
   });
@@ -179,12 +181,12 @@ async function resolvedMergeContent(filename) {
 }
 
 function makePick(conflict_group) {
-    console.log("\nMERGE CONFLICT:");
-    console.log("1 (YOURS):");
+    console.log("\nMERGE CONFLICT:\n");
+    console.log("1 (YOURS):\n");
     conflict_group.conflict.a.forEach((line, i) => {
       console.log((conflict_group.conflict.aIndex + i)+": "+line);
     });
-    console.log("\n\n2 (THEIRS):");
+    console.log("\n\n2 (THEIRS):\n");
     conflict_group.conflict.b.forEach((line, i) => {
       console.log((conflict_group.conflict.bIndex + i)+": "+line);
     });

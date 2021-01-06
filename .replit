@@ -1,2 +1,4 @@
-language = "node"
-run = "node resolve.js"
+language = "bash"
+run = "bash main.sh"
+#language = "node"
+#run = "node resolve.js"

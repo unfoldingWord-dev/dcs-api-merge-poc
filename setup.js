@@ -15,6 +15,9 @@ var repo = "dcs-resolve-conflict-poc";
 var branch = "user-tc-create-1";
 
 async function setup() {
+  console.log("=====================================")
+  console.log("RUNNING setup.js:\n")
+
   const host_input = prompt(`Enter host URL [${host}]: `);
   if (host_input) {
     host = host_input;
@@ -207,4 +210,5 @@ async function setup() {
 
 setup().then(pr_num => {
   console.log(`Setup complete! PR #: ${pr_num}`);
+  console.log("=====================================\n")
 });

@@ -15,6 +15,8 @@ var ternary_branch_made = false;
 var merge_base = null;
 
 function main() {
+  console.log("=====================================")
+  console.log("RUNNING resolve.js:\n")
   const host_input = prompt(`Enter host URL [${host}]: `);
   if (host_input) {
     host = host_input;
@@ -43,6 +45,7 @@ function main() {
 
   handleMergeConflicts().then(() => {
     console.log("DONE!");
+    console.log("=====================================\n")
   });
 };
 
